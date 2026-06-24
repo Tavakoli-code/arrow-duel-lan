@@ -1,18 +1,24 @@
 import Phaser from "phaser";
 
+type PlayerNumber = 1 | 2;
+
 export class GameScene extends Phaser.Scene {
   private player1!: Phaser.GameObjects.Rectangle;
   private player2!: Phaser.GameObjects.Rectangle;
 
-  private player1Body!: Phaser.Physics.Arcade.Body;
-  private player2Body!: Phaser.Physics.Arcade.Body;
+  private player1Body!: Phaser.Physics.Arcade.StaticBody;
+  private player2Body!: Phaser.Physics.Arcade.StaticBody;
 
   private aimLine!: Phaser.GameObjects.Line;
   private powerText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private instructionText!: Phaser.GameObjects.Text;
 
+  private currentPlayer: PlayerNumber = 1;
+
   private isCharging = false;
+  private isResolvingTurn = false;
+
   private power = 0;
   private maxPower = 900;
   private powerChargeSpeed = 700;
@@ -30,6 +36,8 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
+    this.createArrowTexture();
+
     this.add
       .text(width / 2, 30, "Arrow Duel LAN", {
         fontSize: "28px",
@@ -38,19 +46,14 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.instructionText = this.add
-      .text(
-        width / 2,
-        65,
-        "Player 1: Aim with mouse, hold click to charge, release to shoot",
-        {
-          fontSize: "18px",
-          color: "#d1d5db",
-        },
-      )
+      .text(width / 2, 65, "", {
+        fontSize: "18px",
+        color: "#d1d5db",
+      })
       .setOrigin(0.5);
 
     this.scoreText = this.add
-      .text(width / 2, 100, "Player 1: 0  |  Player 2: 0", {
+      .text(width / 2, 100, "", {
         fontSize: "22px",
         color: "#ffffff",
       })
@@ -70,8 +73,8 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.existing(this.player1, true);
     this.physics.add.existing(this.player2, true);
 
-    this.player1Body = this.player1.body as Phaser.Physics.Arcade.Body;
-    this.player2Body = this.player2.body as Phaser.Physics.Arcade.Body;
+    this.player1Body = this.player1.body as Phaser.Physics.Arcade.StaticBody;
+    this.player2Body = this.player2.body as Phaser.Physics.Arcade.StaticBody;
 
     this.add
       .text(this.player1.x, this.player1.y - 60, "Player 1", {
@@ -94,8 +97,11 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
+    this.updateScoreText();
+    this.updateInstructionText();
+
     this.input.on("pointerdown", () => {
-      if (this.arrow) {
+      if (this.arrow || this.isResolvingTurn) {
         return;
       }
 
@@ -104,7 +110,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
-      if (!this.isCharging || this.arrow) {
+      if (!this.isCharging || this.arrow || this.isResolvingTurn) {
         return;
       }
 
@@ -136,44 +142,58 @@ export class GameScene extends Phaser.Scene {
       this.checkArrowHit();
 
       if (
-        this.arrow.y > this.scale.height + 100 ||
-        this.arrow.x > this.scale.width + 100
+        this.arrow &&
+        (this.arrow.y > this.scale.height + 100 ||
+          this.arrow.x > this.scale.width + 100 ||
+          this.arrow.x < -100)
       ) {
-        this.destroyArrow();
+        this.handleMiss();
       }
     }
   }
 
+  private createArrowTexture() {
+    if (this.textures.exists("arrow")) {
+      return;
+    }
+
+    const graphics = this.add.graphics();
+    graphics.fillStyle(0xfacc15, 1);
+    graphics.fillRect(0, 0, 32, 6);
+    graphics.generateTexture("arrow", 32, 6);
+    graphics.destroy();
+  }
+
   private updateAimLine() {
+    if (this.arrow || this.isResolvingTurn) {
+      this.aimLine.setVisible(false);
+      return;
+    }
+
+    this.aimLine.setVisible(true);
+
     const pointer = this.input.activePointer;
+    const { startX, startY } = this.getCurrentShotStart();
 
-    const startX = this.player1.x + 30;
-    const startY = this.player1.y - 20;
-
-    const endX = pointer.worldX;
-    const endY = pointer.worldY;
-
-    this.aimLine.setTo(startX, startY, endX, endY);
+    this.aimLine.setTo(startX, startY, pointer.worldX, pointer.worldY);
   }
 
   private shootArrow(targetX: number, targetY: number) {
-    const startX = this.player1.x + 30;
-    const startY = this.player1.y - 20;
+    const { startX, startY } = this.getCurrentShotStart();
 
     const angle = Phaser.Math.Angle.Between(startX, startY, targetX, targetY);
 
     const velocityX = Math.cos(angle) * this.power;
     const velocityY = Math.sin(angle) * this.power;
 
-    this.arrow = this.physics.add.image(startX, startY, "");
+    this.arrow = this.physics.add.image(startX, startY, "arrow");
 
     const arrowBody = this.arrow.body as Phaser.Physics.Arcade.Body;
     arrowBody.setAllowGravity(true);
     arrowBody.setVelocity(velocityX, velocityY);
-    arrowBody.setSize(24, 6);
+    arrowBody.setSize(32, 6);
 
     this.arrow.setDisplaySize(32, 6);
-    this.arrow.setTint(0xfacc15);
     this.arrow.setRotation(angle);
   }
 
@@ -195,6 +215,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     const arrowBody = this.arrow.body as Phaser.Physics.Arcade.Body;
+    const targetBody =
+      this.currentPlayer === 1 ? this.player2Body : this.player1Body;
 
     const arrowBounds = new Phaser.Geom.Rectangle(
       arrowBody.x,
@@ -203,32 +225,82 @@ export class GameScene extends Phaser.Scene {
       arrowBody.height,
     );
 
-    const player2Bounds = new Phaser.Geom.Rectangle(
-      this.player2Body.x,
-      this.player2Body.y,
-      this.player2Body.width,
-      this.player2Body.height,
+    const targetBounds = new Phaser.Geom.Rectangle(
+      targetBody.x,
+      targetBody.y,
+      targetBody.width,
+      targetBody.height,
     );
 
-    const didHitPlayer2 = Phaser.Geom.Intersects.RectangleToRectangle(
+    const didHitTarget = Phaser.Geom.Intersects.RectangleToRectangle(
       arrowBounds,
-      player2Bounds,
+      targetBounds,
     );
 
-    if (!didHitPlayer2) {
+    if (!didHitTarget) {
       return;
     }
 
-    this.player1Score += 1;
+    const shooter = this.currentPlayer;
+    const target = shooter === 1 ? 2 : 1;
+
+    if (shooter === 1) {
+      this.player1Score += 1;
+    } else {
+      this.player2Score += 1;
+    }
+
     this.updateScoreText();
-    this.showHitMessage("Player 1 hit Player 2!");
+    this.showStatusMessage(`Player ${shooter} hit Player ${target}!`);
     this.destroyArrow();
 
-    if (this.player1Score >= this.winningScore) {
+    if (this.getCurrentPlayerScore() >= this.winningScore) {
       this.scene.start("ResultScene", {
-        winner: "Player 1",
+        winner: `Player ${shooter}`,
       });
+      return;
     }
+
+    this.endTurnAfterDelay();
+  }
+
+  private handleMiss() {
+    this.showStatusMessage(`Player ${this.currentPlayer} missed!`);
+    this.destroyArrow();
+    this.endTurnAfterDelay();
+  }
+
+  private endTurnAfterDelay() {
+    this.isResolvingTurn = true;
+
+    this.time.delayedCall(800, () => {
+      this.switchTurn();
+      this.isResolvingTurn = false;
+    });
+  }
+
+  private switchTurn() {
+    this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
+    this.power = 0;
+    this.updateInstructionText();
+  }
+
+  private getCurrentShotStart() {
+    if (this.currentPlayer === 1) {
+      return {
+        startX: this.player1.x + 30,
+        startY: this.player1.y - 20,
+      };
+    }
+
+    return {
+      startX: this.player2.x - 30,
+      startY: this.player2.y - 20,
+    };
+  }
+
+  private getCurrentPlayerScore() {
+    return this.currentPlayer === 1 ? this.player1Score : this.player2Score;
   }
 
   private updateScoreText() {
@@ -237,18 +309,24 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  private showHitMessage(message: string) {
+  private updateInstructionText() {
+    this.instructionText.setText(
+      `Player ${this.currentPlayer}: Aim with mouse, hold click to charge, release to shoot`,
+    );
+  }
+
+  private showStatusMessage(message: string) {
     const { width } = this.scale;
 
-    const hitText = this.add
+    const statusText = this.add
       .text(width / 2, 145, message, {
         fontSize: "22px",
         color: "#facc15",
       })
       .setOrigin(0.5);
 
-    this.time.delayedCall(900, () => {
-      hitText.destroy();
+    this.time.delayedCall(700, () => {
+      statusText.destroy();
     });
   }
 
