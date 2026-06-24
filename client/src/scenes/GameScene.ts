@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { WindSystem } from "../systems/WindSystem";
 
 type PlayerNumber = 1 | 2;
 
@@ -28,6 +29,9 @@ export class GameScene extends Phaser.Scene {
   private winningScore = 5;
 
   private arrow?: Phaser.Physics.Arcade.Image;
+
+  private windSystem = new WindSystem();
+  private windText!: Phaser.GameObjects.Text;
 
   constructor() {
     super("GameScene");
@@ -97,6 +101,11 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
+    this.windText = this.add.text(20, 50, this.windSystem.getDisplayText(), {
+      fontSize: "20px",
+      color: "#ffffff",
+    });
+
     this.updateScoreText();
     this.updateInstructionText();
 
@@ -138,6 +147,7 @@ export class GameScene extends Phaser.Scene {
     this.powerText.setText(`Power: ${powerPercent}%`);
 
     if (this.arrow) {
+      this.applyWindToArrow(delta);
       this.updateArrowRotation();
       this.checkArrowHit();
 
@@ -251,7 +261,14 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.updateScoreText();
-    this.showStatusMessage(`Player ${shooter} hit Player ${target}!`);
+
+    const windState = this.windSystem.increaseDifficulty();
+    this.windText.setText(this.windSystem.getDisplayText());
+
+    this.showStatusMessage(
+      `Player ${shooter} hit Player ${target}! Wind is now ${windState.label}`,
+    );
+
     this.destroyArrow();
 
     if (this.getCurrentPlayerScore() >= this.winningScore) {
@@ -338,5 +355,16 @@ export class GameScene extends Phaser.Scene {
     this.arrow.destroy();
     this.arrow = undefined;
     this.power = 0;
+  }
+
+  private applyWindToArrow(delta: number) {
+    if (!this.arrow) {
+      return;
+    }
+
+    const body = this.arrow.body as Phaser.Physics.Arcade.Body;
+    const windForceX = this.windSystem.getForceX();
+
+    body.setVelocityX(body.velocity.x + (windForceX * delta) / 1000);
   }
 }
