@@ -25,3 +25,26 @@ export interface RoomReadyPayload {
 export interface RoomErrorPayload {
   message: string;
 }
+
+export interface ShotPayload {
+  roomId: string;
+  playerNumber: PlayerNumber;
+  angle: number;
+  powerRatio: number;
+}
+
+export interface SyncedWindState {
+  direction: "left" | "right" | "none";
+  strength: number;
+  level: number;
+  label: string;
+}
+
+export interface TurnResultPayload {
+  roomId: string;
+  shooter: PlayerNumber;
+  target: PlayerNumber;
+  result: "hit" | "miss";
+  winner?: PlayerNumber;
+  windState?: SyncedWindState;
+}

@@ -44,6 +44,37 @@ export function registerGameSocket(io: Server, socket: Socket) {
     }
   });
 
+  socket.on(
+    "game:shot",
+    (payload: {
+      roomId: string;
+      playerNumber: 1 | 2;
+      angle: number;
+      powerRatio: number;
+    }) => {
+      io.to(payload.roomId).emit("game:shot", payload);
+    },
+  );
+
+  socket.on(
+    "game:turn_result",
+    (payload: {
+      roomId: string;
+      shooter: 1 | 2;
+      target: 1 | 2;
+      result: "hit" | "miss";
+      winner?: 1 | 2;
+      windState?: {
+        direction: "left" | "right" | "none";
+        strength: number;
+        level: number;
+        label: string;
+      };
+    }) => {
+      io.to(payload.roomId).emit("game:turn_result", payload);
+    },
+  );
+
   socket.on("disconnect", () => {
     roomManager.removePlayer(socket.id);
     console.log(`Socket disconnected: ${socket.id}`);

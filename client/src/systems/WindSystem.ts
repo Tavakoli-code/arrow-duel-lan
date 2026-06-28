@@ -9,6 +9,7 @@ export interface WindState {
 
 export class WindSystem {
   private totalHits = 0;
+
   private state: WindState = {
     direction: "none",
     strength: 0,
@@ -18,6 +19,11 @@ export class WindSystem {
 
   getState(): WindState {
     return this.state;
+  }
+
+  setState(state: WindState): void {
+    this.state = state;
+    this.totalHits = state.level;
   }
 
   increaseDifficulty(): WindState {
