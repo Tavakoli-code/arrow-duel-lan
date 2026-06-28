@@ -12,6 +12,8 @@ export class GameScene extends Phaser.Scene {
 
   private aimLine!: Phaser.GameObjects.Line;
   private powerText!: Phaser.GameObjects.Text;
+  private powerBarBg!: Phaser.GameObjects.Rectangle;
+  private powerBarFill!: Phaser.GameObjects.Rectangle;
   private scoreText!: Phaser.GameObjects.Text;
   private instructionText!: Phaser.GameObjects.Text;
 
@@ -101,6 +103,14 @@ export class GameScene extends Phaser.Scene {
       color: "#ffffff",
     });
 
+    this.powerBarBg = this.add
+      .rectangle(120, 85, 200, 16, 0x374151)
+      .setOrigin(0, 0.5);
+
+    this.powerBarFill = this.add
+      .rectangle(120, 85, 0, 16, 0xfacc15)
+      .setOrigin(0, 0.5);
+
     this.windText = this.add.text(20, 50, this.windSystem.getDisplayText(), {
       fontSize: "20px",
       color: "#ffffff",
@@ -143,8 +153,11 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    const powerPercent = Math.round((this.power / this.maxPower) * 100);
+    const powerRatio = this.power / this.maxPower;
+    const powerPercent = Math.round(powerRatio * 100);
+
     this.powerText.setText(`Power: ${powerPercent}%`);
+    this.powerBarFill.width = 200 * powerRatio;
 
     if (this.arrow) {
       this.applyWindToArrow(delta);
@@ -185,7 +198,27 @@ export class GameScene extends Phaser.Scene {
     const pointer = this.input.activePointer;
     const { startX, startY } = this.getCurrentShotStart();
 
-    this.aimLine.setTo(startX, startY, pointer.worldX, pointer.worldY);
+    const distance = Phaser.Math.Distance.Between(
+      startX,
+      startY,
+      pointer.worldX,
+      pointer.worldY,
+    );
+    const windLevel = this.windSystem.getState().level;
+    const maxGuideLength = Math.max(70, 160 - windLevel * 18);
+    const guideLength = Math.min(distance, maxGuideLength);
+
+    const angle = Phaser.Math.Angle.Between(
+      startX,
+      startY,
+      pointer.worldX,
+      pointer.worldY,
+    );
+
+    const endX = startX + Math.cos(angle) * guideLength;
+    const endY = startY + Math.sin(angle) * guideLength;
+
+    this.aimLine.setTo(startX, startY, endX, endY);
   }
 
   private shootArrow(targetX: number, targetY: number) {
