@@ -86,6 +86,9 @@ export class GameScene extends Phaser.Scene {
 
     this.createGeneratedTextures();
 
+    // Put background first
+    this.createArenaBackground();
+
     if (this.mode === "lan") {
       this.registerGameSocketListeners();
     }
@@ -99,21 +102,24 @@ export class GameScene extends Phaser.Scene {
         fontSize: "28px",
         color: "#ffffff",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(100);
 
     this.instructionText = this.add
       .text(width / 2, 65, "", {
         fontSize: "18px",
         color: "#d1d5db",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(100);
 
     this.scoreText = this.add
       .text(width / 2, 100, "", {
         fontSize: "22px",
         color: "#ffffff",
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setDepth(100);
 
     this.statusMessageText = this.add
       .text(width / 2, 145, "", {
@@ -121,47 +127,59 @@ export class GameScene extends Phaser.Scene {
         color: "#facc15",
       })
       .setOrigin(0.5)
-      .setVisible(false);
+      .setVisible(false)
+      .setDepth(100);
 
-    this.powerText = this.add.text(24, 24, "Power: 0%", {
-      fontSize: "20px",
-      color: "#ffffff",
-    });
+    this.powerText = this.add
+      .text(24, 24, "Power: 0%", {
+        fontSize: "20px",
+        color: "#ffffff",
+      })
+      .setDepth(100);
 
-    this.windText = this.add.text(24, 54, this.windSystem.getDisplayText(), {
-      fontSize: "20px",
-      color: "#ffffff",
-    });
+    this.windText = this.add
+      .text(24, 54, this.windSystem.getDisplayText(), {
+        fontSize: "20px",
+        color: "#ffffff",
+      })
+      .setDepth(100);
 
     this.powerBarBg = this.add
       .rectangle(24, 90, 220, 18, 0x374151)
-      .setOrigin(0, 0.5);
+      .setOrigin(0, 0.5)
+      .setDepth(100);
 
     this.powerBarFill = this.add
       .rectangle(24, 90, 220, 18, 0xfacc15)
-      .setOrigin(0, 0.5);
+      .setOrigin(0, 0.5)
+      .setDepth(101);
 
     this.powerBarFill.scaleX = 0;
 
-    const groundHeight = 90;
-    const groundY = height - groundHeight / 2;
-    const groundTop = height - groundHeight;
+    this.powerBarFill.scaleX = 0;
 
-    this.add.rectangle(width / 2, groundY, width, groundHeight, 0x374151);
+    this.createArenaBackground();
+
+    const groundHeight = 90;
+    const groundTop = height - groundHeight;
 
     const playerY = groundTop - 55;
 
     this.obstacle = this.add.rectangle(
       width / 2,
       groundTop - 45,
-      70,
+      74,
       90,
       0x6b7280,
     );
     this.physics.add.existing(this.obstacle, true);
     this.obstacleBody = this.obstacle.body as Phaser.Physics.Arcade.StaticBody;
 
-    this.add.rectangle(width / 2, groundTop - 92, 82, 12, 0x9ca3af);
+    this.add.rectangle(width / 2, groundTop - 92, 86, 12, 0x9ca3af);
+    this.add.rectangle(width / 2, groundTop - 60, 74, 4, 0x4b5563);
+    this.add.rectangle(width / 2, groundTop - 30, 74, 4, 0x4b5563);
+    this.add.rectangle(width / 2 - 18, groundTop - 45, 4, 90, 0x4b5563);
+    this.add.rectangle(width / 2 + 18, groundTop - 45, 4, 90, 0x4b5563);
 
     this.player1Hitbox = this.add.rectangle(170, playerY, 70, 110, 0x000000, 0);
     this.player2Hitbox = this.add.rectangle(
@@ -204,7 +222,10 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.aimLine = this.add.line(0, 0, 0, 0, 0, 0, 0xffffff).setOrigin(0, 0);
+    this.aimLine = this.add
+      .line(0, 0, 0, 0, 0, 0, 0xffffff)
+      .setOrigin(0, 0)
+      .setDepth(90);
 
     this.updateScoreText();
     this.updateInstructionText();
@@ -780,5 +801,67 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.handleMiss(`Player ${this.currentPlayer} hit the obstacle!`);
+  }
+
+  private createArenaBackground() {
+    const { width, height } = this.scale;
+
+    // Sky
+    this.add.rectangle(width / 2, height / 2, width, height, 0x1e293b);
+
+    // Sun
+    this.add.circle(width - 120, 100, 42, 0xfacc15, 0.9);
+
+    // Clouds
+    this.createCloud(160, 100);
+    this.createCloud(width / 2, 135);
+    this.createCloud(width - 320, 90);
+
+    // Mountains
+    this.add.triangle(180, height - 90, 0, 0, 180, -180, 360, 0, 0x334155);
+    this.add.triangle(430, height - 90, 0, 0, 210, -230, 420, 0, 0x475569);
+    this.add.triangle(
+      width - 280,
+      height - 90,
+      0,
+      0,
+      210,
+      -210,
+      420,
+      0,
+      0x334155,
+    );
+
+    // Ground base
+    const groundHeight = 90;
+    const groundTop = height - groundHeight;
+    const groundY = height - groundHeight / 2;
+
+    // Ground top line
+    this.add.rectangle(width / 2, height - groundHeight, width, 8, 0x64748b);
+
+    // Small ground details
+    for (let x = 40; x < width; x += 90) {
+      const grassHeight = Phaser.Math.Between(8, 18);
+
+      this.add.rectangle(
+        x,
+        height - groundHeight - grassHeight / 2,
+        5,
+        grassHeight,
+        0x22c55e,
+      );
+    }
+
+    for (let x = 80; x < width; x += 160) {
+      this.add.ellipse(x, height - 28, 28, 10, 0x1f2937, 0.45);
+    }
+  }
+
+  private createCloud(x: number, y: number) {
+    this.add.circle(x - 28, y + 8, 20, 0xe5e7eb, 0.85);
+    this.add.circle(x, y, 28, 0xf8fafc, 0.9);
+    this.add.circle(x + 32, y + 10, 22, 0xe5e7eb, 0.85);
+    this.add.ellipse(x, y + 20, 95, 25, 0xf8fafc, 0.8);
   }
 }
