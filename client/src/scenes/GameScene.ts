@@ -1,21 +1,29 @@
 import Phaser from "phaser";
+
 import { WindSystem } from "../systems/WindSystem";
 
 type PlayerNumber = 1 | 2;
 
 export class GameScene extends Phaser.Scene {
-  private player1!: Phaser.GameObjects.Rectangle;
-  private player2!: Phaser.GameObjects.Rectangle;
+  private player1Hitbox!: Phaser.GameObjects.Rectangle;
+  private player2Hitbox!: Phaser.GameObjects.Rectangle;
+
+  private player1Visual!: Phaser.GameObjects.Image;
+  private player2Visual!: Phaser.GameObjects.Image;
 
   private player1Body!: Phaser.Physics.Arcade.StaticBody;
   private player2Body!: Phaser.Physics.Arcade.StaticBody;
 
   private aimLine!: Phaser.GameObjects.Line;
   private powerText!: Phaser.GameObjects.Text;
-  private powerBarBg!: Phaser.GameObjects.Rectangle;
-  private powerBarFill!: Phaser.GameObjects.Rectangle;
+  private windText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private instructionText!: Phaser.GameObjects.Text;
+
+  private powerBarBg!: Phaser.GameObjects.Rectangle;
+  private powerBarFill!: Phaser.GameObjects.Rectangle;
+
+  private windSystem = new WindSystem();
 
   private currentPlayer: PlayerNumber = 1;
 
@@ -32,9 +40,6 @@ export class GameScene extends Phaser.Scene {
 
   private arrow?: Phaser.Physics.Arcade.Image;
 
-  private windSystem = new WindSystem();
-  private windText!: Phaser.GameObjects.Text;
-
   constructor() {
     super("GameScene");
   }
@@ -42,7 +47,7 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    this.createArrowTexture();
+    this.createGeneratedTextures();
 
     this.add
       .text(width / 2, 30, "Arrow Duel LAN", {
@@ -65,56 +70,76 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.add.rectangle(width / 2, height - 40, width, 80, 0x374151);
+    this.powerText = this.add.text(24, 24, "Power: 0%", {
+      fontSize: "20px",
+      color: "#ffffff",
+    });
 
-    this.player1 = this.add.rectangle(160, height - 110, 48, 80, 0x3b82f6);
-    this.player2 = this.add.rectangle(
-      width - 160,
-      height - 110,
-      48,
-      80,
-      0xef4444,
+    this.windText = this.add.text(24, 54, this.windSystem.getDisplayText(), {
+      fontSize: "20px",
+      color: "#ffffff",
+    });
+
+    this.powerBarBg = this.add
+      .rectangle(24, 90, 220, 18, 0x374151)
+      .setOrigin(0, 0.5);
+
+    this.powerBarFill = this.add
+      .rectangle(24, 90, 220, 18, 0xfacc15)
+      .setOrigin(0, 0.5);
+
+    this.powerBarFill.scaleX = 0;
+
+    const groundHeight = 90;
+    const groundY = height - groundHeight / 2;
+    const groundTop = height - groundHeight;
+
+    this.add.rectangle(width / 2, groundY, width, groundHeight, 0x374151);
+
+    const playerY = groundTop - 55;
+
+    this.player1Hitbox = this.add.rectangle(170, playerY, 70, 110, 0x000000, 0);
+    this.player2Hitbox = this.add.rectangle(
+      width - 170,
+      playerY,
+      70,
+      110,
+      0x000000,
+      0,
     );
 
-    this.physics.add.existing(this.player1, true);
-    this.physics.add.existing(this.player2, true);
+    this.physics.add.existing(this.player1Hitbox, true);
+    this.physics.add.existing(this.player2Hitbox, true);
 
-    this.player1Body = this.player1.body as Phaser.Physics.Arcade.StaticBody;
-    this.player2Body = this.player2.body as Phaser.Physics.Arcade.StaticBody;
+    this.player1Body = this.player1Hitbox
+      .body as Phaser.Physics.Arcade.StaticBody;
+    this.player2Body = this.player2Hitbox
+      .body as Phaser.Physics.Arcade.StaticBody;
+
+    this.player1Visual = this.add
+      .image(this.player1Hitbox.x, this.player1Hitbox.y, "archer-blue")
+      .setDisplaySize(96, 128);
+
+    this.player2Visual = this.add
+      .image(this.player2Hitbox.x, this.player2Hitbox.y, "archer-red")
+      .setDisplaySize(96, 128)
+      .setFlipX(true);
 
     this.add
-      .text(this.player1.x, this.player1.y - 60, "Player 1", {
+      .text(this.player1Hitbox.x, this.player1Hitbox.y - 82, "Player 1", {
         fontSize: "16px",
         color: "#ffffff",
       })
       .setOrigin(0.5);
 
     this.add
-      .text(this.player2.x, this.player2.y - 60, "Player 2", {
+      .text(this.player2Hitbox.x, this.player2Hitbox.y - 82, "Player 2", {
         fontSize: "16px",
         color: "#ffffff",
       })
       .setOrigin(0.5);
 
     this.aimLine = this.add.line(0, 0, 0, 0, 0, 0, 0xffffff).setOrigin(0, 0);
-
-    this.powerText = this.add.text(20, 20, "Power: 0%", {
-      fontSize: "20px",
-      color: "#ffffff",
-    });
-
-    this.powerBarBg = this.add
-      .rectangle(120, 85, 200, 16, 0x374151)
-      .setOrigin(0, 0.5);
-
-    this.powerBarFill = this.add
-      .rectangle(120, 85, 0, 16, 0xfacc15)
-      .setOrigin(0, 0.5);
-
-    this.windText = this.add.text(20, 50, this.windSystem.getDisplayText(), {
-      fontSize: "20px",
-      color: "#ffffff",
-    });
 
     this.updateScoreText();
     this.updateInstructionText();
@@ -157,7 +182,7 @@ export class GameScene extends Phaser.Scene {
     const powerPercent = Math.round(powerRatio * 100);
 
     this.powerText.setText(`Power: ${powerPercent}%`);
-    this.powerBarFill.width = 200 * powerRatio;
+    this.powerBarFill.scaleX = powerRatio;
 
     if (this.arrow) {
       this.applyWindToArrow(delta);
@@ -175,15 +200,84 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private createGeneratedTextures() {
+    this.createArcherTexture("archer-blue", 0x3b82f6, 0x93c5fd);
+    this.createArcherTexture("archer-red", 0xef4444, 0xfca5a5);
+    this.createArrowTexture();
+  }
+
+  private createArcherTexture(
+    key: string,
+    mainColor: number,
+    accentColor: number,
+  ) {
+    if (this.textures.exists(key)) {
+      return;
+    }
+
+    const graphics = this.add.graphics();
+
+    graphics.fillStyle(0x000000, 0.2);
+    graphics.fillEllipse(48, 118, 64, 14);
+
+    graphics.lineStyle(8, mainColor, 1);
+    graphics.lineBetween(42, 86, 34, 112);
+    graphics.lineBetween(54, 86, 62, 112);
+
+    graphics.lineStyle(6, 0x111827, 1);
+    graphics.lineBetween(30, 114, 42, 114);
+    graphics.lineBetween(58, 114, 70, 114);
+
+    graphics.fillStyle(mainColor, 1);
+    graphics.fillRoundedRect(34, 48, 28, 44, 10);
+
+    graphics.lineStyle(4, accentColor, 1);
+    graphics.lineBetween(36, 62, 62, 80);
+
+    graphics.fillStyle(0xf8d7aa, 1);
+    graphics.fillCircle(48, 32, 15);
+
+    graphics.fillStyle(0x111827, 1);
+    graphics.fillRoundedRect(35, 18, 26, 10, 4);
+
+    graphics.lineStyle(7, 0xf8d7aa, 1);
+    graphics.lineBetween(58, 58, 75, 66);
+    graphics.lineBetween(38, 58, 30, 74);
+
+    graphics.lineStyle(4, 0x8b5a2b, 1);
+    graphics.strokeEllipse(78, 64, 18, 74);
+
+    graphics.lineStyle(2, 0xe5e7eb, 1);
+    graphics.lineBetween(78, 27, 78, 101);
+
+    graphics.lineStyle(2, 0xfacc15, 1);
+    graphics.lineBetween(54, 64, 88, 64);
+
+    graphics.fillStyle(0xfacc15, 1);
+    graphics.fillTriangle(88, 58, 96, 64, 88, 70);
+
+    graphics.generateTexture(key, 96, 128);
+    graphics.destroy();
+  }
+
   private createArrowTexture() {
     if (this.textures.exists("arrow")) {
       return;
     }
 
     const graphics = this.add.graphics();
-    graphics.fillStyle(0xfacc15, 1);
-    graphics.fillRect(0, 0, 32, 6);
-    graphics.generateTexture("arrow", 32, 6);
+
+    graphics.lineStyle(4, 0xfacc15, 1);
+    graphics.lineBetween(4, 6, 48, 6);
+
+    graphics.fillStyle(0xf59e0b, 1);
+    graphics.fillTriangle(48, 0, 60, 6, 48, 12);
+
+    graphics.fillStyle(0xe5e7eb, 1);
+    graphics.fillTriangle(4, 6, 0, 1, 12, 5);
+    graphics.fillTriangle(4, 6, 0, 11, 12, 7);
+
+    graphics.generateTexture("arrow", 60, 12);
     graphics.destroy();
   }
 
@@ -230,14 +324,24 @@ export class GameScene extends Phaser.Scene {
     const velocityY = Math.sin(angle) * this.power;
 
     this.arrow = this.physics.add.image(startX, startY, "arrow");
+    this.arrow.setOrigin(0.5, 0.5);
+    this.arrow.setRotation(angle);
 
     const arrowBody = this.arrow.body as Phaser.Physics.Arcade.Body;
     arrowBody.setAllowGravity(true);
     arrowBody.setVelocity(velocityX, velocityY);
-    arrowBody.setSize(32, 6);
+    arrowBody.setSize(54, 8);
+  }
 
-    this.arrow.setDisplaySize(32, 6);
-    this.arrow.setRotation(angle);
+  private applyWindToArrow(delta: number) {
+    if (!this.arrow) {
+      return;
+    }
+
+    const body = this.arrow.body as Phaser.Physics.Arcade.Body;
+    const windForceX = this.windSystem.getForceX();
+
+    body.setVelocityX(body.velocity.x + (windForceX * delta) / 1000);
   }
 
   private updateArrowRotation() {
@@ -338,14 +442,14 @@ export class GameScene extends Phaser.Scene {
   private getCurrentShotStart() {
     if (this.currentPlayer === 1) {
       return {
-        startX: this.player1.x + 30,
-        startY: this.player1.y - 20,
+        startX: this.player1Hitbox.x + 44,
+        startY: this.player1Hitbox.y - 24,
       };
     }
 
     return {
-      startX: this.player2.x - 30,
-      startY: this.player2.y - 20,
+      startX: this.player2Hitbox.x - 44,
+      startY: this.player2Hitbox.y - 24,
     };
   }
 
@@ -388,16 +492,5 @@ export class GameScene extends Phaser.Scene {
     this.arrow.destroy();
     this.arrow = undefined;
     this.power = 0;
-  }
-
-  private applyWindToArrow(delta: number) {
-    if (!this.arrow) {
-      return;
-    }
-
-    const body = this.arrow.body as Phaser.Physics.Arcade.Body;
-    const windForceX = this.windSystem.getForceX();
-
-    body.setVelocityX(body.velocity.x + (windForceX * delta) / 1000);
   }
 }
