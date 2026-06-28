@@ -7,10 +7,14 @@ import { ResultScene } from "./scenes/ResultScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
-  parent: "game",
-  width: 960,
-  height: 540,
   backgroundColor: "#1f2937",
+  scale: {
+    mode: Phaser.Scale.RESIZE,
+    parent: "game",
+    width: window.innerWidth,
+    height: window.innerHeight,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
   physics: {
     default: "arcade",
     arcade: {
