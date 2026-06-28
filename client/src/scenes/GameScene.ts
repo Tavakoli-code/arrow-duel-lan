@@ -30,6 +30,9 @@ export class GameScene extends Phaser.Scene {
   private player1Body!: Phaser.Physics.Arcade.StaticBody;
   private player2Body!: Phaser.Physics.Arcade.StaticBody;
 
+  private obstacle!: Phaser.GameObjects.Rectangle;
+  private obstacleBody!: Phaser.Physics.Arcade.StaticBody;
+
   private aimLine!: Phaser.GameObjects.Line;
   private powerText!: Phaser.GameObjects.Text;
   private windText!: Phaser.GameObjects.Text;
@@ -53,6 +56,9 @@ export class GameScene extends Phaser.Scene {
   private player1Score = 0;
   private player2Score = 0;
   private winningScore = 5;
+
+  private statusMessageText!: Phaser.GameObjects.Text;
+  private statusMessageTimer?: Phaser.Time.TimerEvent;
 
   private arrow?: Phaser.Physics.Arcade.Image;
 
@@ -109,6 +115,14 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.statusMessageText = this.add
+      .text(width / 2, 145, "", {
+        fontSize: "22px",
+        color: "#facc15",
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+
     this.powerText = this.add.text(24, 24, "Power: 0%", {
       fontSize: "20px",
       color: "#ffffff",
@@ -136,6 +150,18 @@ export class GameScene extends Phaser.Scene {
     this.add.rectangle(width / 2, groundY, width, groundHeight, 0x374151);
 
     const playerY = groundTop - 55;
+
+    this.obstacle = this.add.rectangle(
+      width / 2,
+      groundTop - 45,
+      70,
+      90,
+      0x6b7280,
+    );
+    this.physics.add.existing(this.obstacle, true);
+    this.obstacleBody = this.obstacle.body as Phaser.Physics.Arcade.StaticBody;
+
+    this.add.rectangle(width / 2, groundTop - 92, 82, 12, 0x9ca3af);
 
     this.player1Hitbox = this.add.rectangle(170, playerY, 70, 110, 0x000000, 0);
     this.player2Hitbox = this.add.rectangle(
@@ -226,6 +252,12 @@ export class GameScene extends Phaser.Scene {
     if (this.arrow) {
       this.applyWindToArrow(delta);
       this.updateArrowRotation();
+      this.checkArrowObstacleHit();
+
+      if (!this.arrow) {
+        return;
+      }
+
       this.checkArrowHit();
 
       if (
@@ -530,9 +562,13 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private handleMiss() {
+  private handleMiss(message?: string) {
     const shooter = this.currentPlayer;
     const target = shooter === 1 ? 2 : 1;
+
+    if (message) {
+      this.showStatusMessage(message);
+    }
 
     if (this.mode === "lan") {
       this.emitTurnResult({
@@ -582,7 +618,9 @@ export class GameScene extends Phaser.Scene {
         `Player ${payload.shooter} hit Player ${payload.target}!`,
       );
     } else {
-      this.showStatusMessage(`Player ${payload.shooter} missed!`);
+      if (!this.statusMessageText.visible) {
+        this.showStatusMessage(`Player ${payload.shooter} missed!`);
+      }
     }
 
     this.destroyArrow();
@@ -688,17 +726,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showStatusMessage(message: string) {
-    const { width } = this.scale;
+    this.statusMessageText.setText(message);
+    this.statusMessageText.setVisible(true);
 
-    const statusText = this.add
-      .text(width / 2, 145, message, {
-        fontSize: "22px",
-        color: "#facc15",
-      })
-      .setOrigin(0.5);
+    if (this.statusMessageTimer) {
+      this.statusMessageTimer.remove(false);
+    }
 
-    this.time.delayedCall(700, () => {
-      statusText.destroy();
+    this.statusMessageTimer = this.time.delayedCall(900, () => {
+      this.statusMessageText.setVisible(false);
+      this.statusMessageText.setText("");
     });
   }
 
@@ -710,5 +747,38 @@ export class GameScene extends Phaser.Scene {
     this.arrow.destroy();
     this.arrow = undefined;
     this.power = 0;
+  }
+
+  private checkArrowObstacleHit() {
+    if (!this.arrow || !this.shouldResolveTurnLocally()) {
+      return;
+    }
+
+    const arrowBody = this.arrow.body as Phaser.Physics.Arcade.Body;
+
+    const arrowBounds = new Phaser.Geom.Rectangle(
+      arrowBody.x,
+      arrowBody.y,
+      arrowBody.width,
+      arrowBody.height,
+    );
+
+    const obstacleBounds = new Phaser.Geom.Rectangle(
+      this.obstacleBody.x,
+      this.obstacleBody.y,
+      this.obstacleBody.width,
+      this.obstacleBody.height,
+    );
+
+    const didHitObstacle = Phaser.Geom.Intersects.RectangleToRectangle(
+      arrowBounds,
+      obstacleBounds,
+    );
+
+    if (!didHitObstacle) {
+      return;
+    }
+
+    this.handleMiss(`Player ${this.currentPlayer} hit the obstacle!`);
   }
 }
