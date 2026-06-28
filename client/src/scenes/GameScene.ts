@@ -567,11 +567,19 @@ export class GameScene extends Phaser.Scene {
         windState,
       });
 
+      if (this.arrow) {
+        this.createImpactEffect(this.arrow.x, this.arrow.y, 0xfacc15);
+      }
+
       this.destroyArrow();
       return;
     }
 
     const windState = this.windSystem.increaseDifficulty();
+
+    if (this.arrow) {
+      this.createImpactEffect(this.arrow.x, this.arrow.y, 0xfacc15);
+    }
 
     this.applyTurnResult({
       roomId: this.roomId ?? "local",
@@ -628,6 +636,9 @@ export class GameScene extends Phaser.Scene {
       } else {
         this.player2Score += 1;
       }
+
+      this.cameras.main.shake(180, 0.006);
+      this.flashPlayer(payload.target);
 
       if (payload.windState) {
         this.windSystem.setState(payload.windState);
@@ -800,6 +811,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    if (this.arrow) {
+      this.createImpactEffect(this.arrow.x, this.arrow.y, 0x9ca3af);
+    }
+
     this.handleMiss(`Player ${this.currentPlayer} hit the obstacle!`);
   }
 
@@ -863,5 +878,43 @@ export class GameScene extends Phaser.Scene {
     this.add.circle(x, y, 28, 0xf8fafc, 0.9);
     this.add.circle(x + 32, y + 10, 22, 0xe5e7eb, 0.85);
     this.add.ellipse(x, y + 20, 95, 25, 0xf8fafc, 0.8);
+  }
+
+  private createImpactEffect(x: number, y: number, color = 0xfacc15) {
+    for (let i = 0; i < 10; i += 1) {
+      const particle = this.add.circle(x, y, Phaser.Math.Between(3, 6), color);
+      particle.setDepth(80);
+
+      const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const distance = Phaser.Math.Between(20, 55);
+
+      this.tweens.add({
+        targets: particle,
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance,
+        alpha: 0,
+        scale: 0,
+        duration: 450,
+        ease: "Quad.easeOut",
+        onComplete: () => {
+          particle.destroy();
+        },
+      });
+    }
+  }
+
+  private flashPlayer(playerNumber: PlayerNumber) {
+    const visual = playerNumber === 1 ? this.player1Visual : this.player2Visual;
+
+    this.tweens.add({
+      targets: visual,
+      alpha: 0.25,
+      duration: 80,
+      yoyo: true,
+      repeat: 3,
+      onComplete: () => {
+        visual.setAlpha(1);
+      },
+    });
   }
 }
