@@ -87,4 +87,18 @@ export class RoomManager {
   private generateRoomId(): string {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
+
+  findRoomBySocketId(socketId: string): GameRoom | undefined {
+    for (const room of this.rooms.values()) {
+      const isInRoom = room.players.some(
+        (player) => player.socketId === socketId,
+      );
+
+      if (isInRoom) {
+        return room;
+      }
+    }
+
+    return undefined;
+  }
 }

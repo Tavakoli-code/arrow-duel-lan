@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { socket } from "../multiplayer/socket";
 import { WindSystem } from "../systems/WindSystem";
 import type {
+  PlayerDisconnectedPayload,
   PlayerNumber,
   ShotPayload,
   TurnResultPayload,
@@ -303,14 +304,20 @@ export class GameScene extends Phaser.Scene {
   private registerGameSocketListeners() {
     socket.off("game:shot", this.handleSocketShot);
     socket.off("game:turn_result", this.handleSocketTurnResult);
+    socket.off("room:player_disconnected", this.handlePlayerDisconnected);
+    socket.off("disconnect", this.handleSocketDisconnected);
 
     socket.on("game:shot", this.handleSocketShot);
     socket.on("game:turn_result", this.handleSocketTurnResult);
+    socket.on("room:player_disconnected", this.handlePlayerDisconnected);
+    socket.on("disconnect", this.handleSocketDisconnected);
   }
 
   private cleanupGameSocketListeners() {
     socket.off("game:shot", this.handleSocketShot);
     socket.off("game:turn_result", this.handleSocketTurnResult);
+    socket.off("room:player_disconnected", this.handlePlayerDisconnected);
+    socket.off("disconnect", this.handleSocketDisconnected);
   }
 
   private handleSocketShot = (payload: ShotPayload) => {
@@ -935,4 +942,30 @@ export class GameScene extends Phaser.Scene {
       },
     });
   }
+
+  private handlePlayerDisconnected = (payload: PlayerDisconnectedPayload) => {
+    if (payload.roomId !== this.roomId) {
+      return;
+    }
+
+    this.showStatusMessage("Other player disconnected. Returning to lobby...");
+
+    this.time.delayedCall(1500, () => {
+      this.scene.start("LobbyScene");
+    });
+  };
+
+  private handleSocketDisconnected = () => {
+    if (this.mode !== "lan") {
+      return;
+    }
+
+    this.showStatusMessage(
+      "Disconnected from LAN server. Returning to lobby...",
+    );
+
+    this.time.delayedCall(1500, () => {
+      this.scene.start("LobbyScene");
+    });
+  };
 }

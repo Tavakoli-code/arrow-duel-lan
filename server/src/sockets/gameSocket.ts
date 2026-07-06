@@ -80,7 +80,16 @@ export function registerGameSocket(io: Server, socket: Socket) {
   });
 
   socket.on("disconnect", () => {
+    const room = roomManager.findRoomBySocketId(socket.id);
+
+    if (room) {
+      socket.to(room.id).emit("room:player_disconnected", {
+        roomId: room.id,
+      });
+    }
+
     roomManager.removePlayer(socket.id);
+
     console.log(`Socket disconnected: ${socket.id}`);
   });
 }

@@ -52,3 +52,7 @@ export interface TurnResultPayload {
 export interface RematchPayload {
   roomId: string;
 }
+
+export interface PlayerDisconnectedPayload {
+  roomId: string;
+}
