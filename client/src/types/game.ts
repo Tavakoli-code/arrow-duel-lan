@@ -56,3 +56,7 @@ export interface RematchPayload {
 export interface PlayerDisconnectedPayload {
   roomId: string;
 }
+
+export interface PlayerLeftPayload {
+  roomId: string;
+}

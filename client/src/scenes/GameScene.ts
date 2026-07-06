@@ -4,6 +4,7 @@ import { socket } from "../multiplayer/socket";
 import { WindSystem } from "../systems/WindSystem";
 import type {
   PlayerDisconnectedPayload,
+  PlayerLeftPayload,
   PlayerNumber,
   ShotPayload,
   TurnResultPayload,
@@ -254,6 +255,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.input.keyboard?.once("keydown-ESC", () => {
+      this.leaveLanRoom();
       this.scene.start("LobbyScene");
     });
   }
@@ -305,18 +307,20 @@ export class GameScene extends Phaser.Scene {
     socket.off("game:shot", this.handleSocketShot);
     socket.off("game:turn_result", this.handleSocketTurnResult);
     socket.off("room:player_disconnected", this.handlePlayerDisconnected);
+    socket.off("room:player_left", this.handlePlayerLeft);
     socket.off("disconnect", this.handleSocketDisconnected);
 
     socket.on("game:shot", this.handleSocketShot);
     socket.on("game:turn_result", this.handleSocketTurnResult);
     socket.on("room:player_disconnected", this.handlePlayerDisconnected);
+    socket.on("room:player_left", this.handlePlayerLeft);
     socket.on("disconnect", this.handleSocketDisconnected);
   }
-
   private cleanupGameSocketListeners() {
     socket.off("game:shot", this.handleSocketShot);
     socket.off("game:turn_result", this.handleSocketTurnResult);
     socket.off("room:player_disconnected", this.handlePlayerDisconnected);
+    socket.off("room:player_left", this.handlePlayerLeft);
     socket.off("disconnect", this.handleSocketDisconnected);
   }
 
@@ -968,4 +972,26 @@ export class GameScene extends Phaser.Scene {
       this.scene.start("LobbyScene");
     });
   };
+
+  private handlePlayerLeft = (payload: PlayerLeftPayload) => {
+    if (payload.roomId !== this.roomId) {
+      return;
+    }
+
+    this.showStatusMessage(
+      "Other player left the match. Returning to lobby...",
+    );
+
+    this.time.delayedCall(1500, () => {
+      this.scene.start("LobbyScene");
+    });
+  };
+
+  private leaveLanRoom() {
+    if (this.mode !== "lan" || !this.roomId) {
+      return;
+    }
+
+    socket.emit("room:leave");
+  }
 }

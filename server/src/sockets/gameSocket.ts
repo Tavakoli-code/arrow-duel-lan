@@ -79,6 +79,28 @@ export function registerGameSocket(io: Server, socket: Socket) {
     io.to(payload.roomId).emit("game:rematch", payload);
   });
 
+  socket.on("room:leave", () => {
+    const room = roomManager.findRoomBySocketId(socket.id);
+
+    if (!room) {
+      return;
+    }
+
+    socket.leave(room.id);
+
+    socket.to(room.id).emit("room:player_left", {
+      roomId: room.id,
+    });
+
+    roomManager.removePlayer(socket.id);
+
+    socket.emit("room:left", {
+      roomId: room.id,
+    });
+
+    console.log(`Socket ${socket.id} left room: ${room.id}`);
+  });
+
   socket.on("disconnect", () => {
     const room = roomManager.findRoomBySocketId(socket.id);
 

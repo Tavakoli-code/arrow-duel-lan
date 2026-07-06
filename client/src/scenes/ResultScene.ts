@@ -70,6 +70,7 @@ export class ResultScene extends Phaser.Scene {
     });
 
     this.createButton(width / 2, height / 2 + 90, "Back to Lobby", () => {
+      this.leaveLanRoom();
       this.scene.start("LobbyScene");
     });
 
@@ -88,6 +89,7 @@ export class ResultScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.input.keyboard?.once("keydown-ESC", () => {
+      this.leaveLanRoom();
       this.scene.start("LobbyScene");
     });
   }
@@ -140,5 +142,13 @@ export class ResultScene extends Phaser.Scene {
       roomId: this.roomId,
       playerNumber: this.playerNumber,
     });
+  }
+
+  private leaveLanRoom() {
+    if (this.mode !== "lan" || !this.roomId) {
+      return;
+    }
+
+    socket.emit("room:leave");
   }
 }
