@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const serverUrl = `${window.location.protocol}//${window.location.hostname}:3001`;
+const serverUrl = `${window.location.protocol}//${window.location.hostname}:4000`;
 
 export const socket = io(serverUrl, {
   autoConnect: false,

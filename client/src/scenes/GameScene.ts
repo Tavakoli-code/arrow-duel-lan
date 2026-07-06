@@ -8,6 +8,8 @@ import type {
   TurnResultPayload,
 } from "../types/game";
 
+import { SoundSystem } from "../systems/SoundSystem";
+
 type GameMode = "local" | "lan";
 
 interface GameSceneData {
@@ -61,6 +63,8 @@ export class GameScene extends Phaser.Scene {
   private statusMessageTimer?: Phaser.Time.TimerEvent;
 
   private arrow?: Phaser.Physics.Arcade.Image;
+
+  private soundSystem = new SoundSystem();
 
   constructor() {
     super("GameScene");
@@ -482,6 +486,7 @@ export class GameScene extends Phaser.Scene {
     const velocityY = Math.sin(angle) * power;
 
     this.arrow = this.physics.add.image(startX, startY, "arrow");
+    this.soundSystem.playShoot();
     this.arrow.setOrigin(0.5, 0.5);
     this.arrow.setRotation(angle);
 
@@ -639,6 +644,7 @@ export class GameScene extends Phaser.Scene {
 
       this.cameras.main.shake(180, 0.006);
       this.flashPlayer(payload.target);
+      this.soundSystem.playHit();
 
       if (payload.windState) {
         this.windSystem.setState(payload.windState);
@@ -650,6 +656,8 @@ export class GameScene extends Phaser.Scene {
         `Player ${payload.shooter} hit Player ${payload.target}!`,
       );
     } else {
+      this.soundSystem.playMiss();
+
       if (!this.statusMessageText.visible) {
         this.showStatusMessage(`Player ${payload.shooter} missed!`);
       }
@@ -658,9 +666,14 @@ export class GameScene extends Phaser.Scene {
     this.destroyArrow();
 
     if (payload.winner) {
-      this.scene.start("ResultScene", {
-        winner: `Player ${payload.winner}`,
+      this.soundSystem.playVictory();
+
+      this.time.delayedCall(600, () => {
+        this.scene.start("ResultScene", {
+          winner: `Player ${payload.winner}`,
+        });
       });
+
       return;
     }
 
@@ -814,6 +827,8 @@ export class GameScene extends Phaser.Scene {
     if (this.arrow) {
       this.createImpactEffect(this.arrow.x, this.arrow.y, 0x9ca3af);
     }
+
+    this.soundSystem.playObstacle();
 
     this.handleMiss(`Player ${this.currentPlayer} hit the obstacle!`);
   }

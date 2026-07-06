@@ -6,7 +6,7 @@ import { Server } from "socket.io";
 import { registerGameSocket } from "./sockets/gameSocket.js";
 
 const app = express();
-const port = Number(process.env.PORT ?? 3001);
+const port = Number(process.env.PORT ?? 4000);
 
 app.use(cors());
 app.use(express.json());
