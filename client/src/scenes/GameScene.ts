@@ -671,6 +671,9 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(600, () => {
         this.scene.start("ResultScene", {
           winner: `Player ${payload.winner}`,
+          mode: this.mode,
+          roomId: this.roomId,
+          playerNumber: this.localPlayerNumber,
         });
       });
 
