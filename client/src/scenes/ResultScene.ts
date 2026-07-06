@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { socket } from "../multiplayer/socket";
+import { RematchPayload } from "../types/game";
 
 type GameMode = "local" | "lan";
 type PlayerNumber = 1 | 2;
@@ -14,6 +16,7 @@ export class ResultScene extends Phaser.Scene {
   private mode: GameMode = "local";
   private roomId?: string;
   private playerNumber?: PlayerNumber;
+  private waitingText?: Phaser.GameObjects.Text;
 
   constructor() {
     super("ResultScene");
@@ -46,17 +49,36 @@ export class ResultScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    socket.off("game:rematch", this.handleRematch);
+    socket.on("game:rematch", this.handleRematch);
+
+    this.events.once("shutdown", () => {
+      socket.off("game:rematch", this.handleRematch);
+    });
+
     this.createButton(width / 2, height / 2 + 20, "Play Again", () => {
-      this.scene.start("GameScene", {
-        mode: this.mode,
-        roomId: this.roomId,
-        playerNumber: this.playerNumber,
-      });
+      if (this.mode === "lan" && this.roomId) {
+        socket.emit("game:rematch", {
+          roomId: this.roomId,
+        });
+
+        this.waitingText?.setText("Starting rematch for both players...");
+        return;
+      }
+
+      this.startRematch();
     });
 
     this.createButton(width / 2, height / 2 + 90, "Back to Lobby", () => {
       this.scene.start("LobbyScene");
     });
+
+    this.waitingText = this.add
+      .text(width / 2, height / 2 + 145, "", {
+        fontSize: "18px",
+        color: "#facc15",
+      })
+      .setOrigin(0.5);
 
     this.add
       .text(width / 2, height / 2 + 160, "Press ESC to return to lobby", {
@@ -102,5 +124,21 @@ export class ResultScene extends Phaser.Scene {
 
     buttonBg.on("pointerdown", onClick);
     buttonText.on("pointerdown", onClick);
+  }
+
+  private handleRematch = (payload: RematchPayload) => {
+    if (payload.roomId !== this.roomId) {
+      return;
+    }
+
+    this.startRematch();
+  };
+
+  private startRematch() {
+    this.scene.start("GameScene", {
+      mode: this.mode,
+      roomId: this.roomId,
+      playerNumber: this.playerNumber,
+    });
   }
 }

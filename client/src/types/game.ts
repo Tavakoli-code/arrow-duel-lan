@@ -48,3 +48,7 @@ export interface TurnResultPayload {
   winner?: PlayerNumber;
   windState?: SyncedWindState;
 }
+
+export interface RematchPayload {
+  roomId: string;
+}

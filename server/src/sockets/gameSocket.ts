@@ -75,6 +75,10 @@ export function registerGameSocket(io: Server, socket: Socket) {
     },
   );
 
+  socket.on("game:rematch", (payload: { roomId: string }) => {
+    io.to(payload.roomId).emit("game:rematch", payload);
+  });
+
   socket.on("disconnect", () => {
     roomManager.removePlayer(socket.id);
     console.log(`Socket disconnected: ${socket.id}`);
